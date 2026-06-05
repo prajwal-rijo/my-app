@@ -13,7 +13,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                url: 'https://github.com/USERNAME/myapp.git'
+                url: 'https://github.com/prajwal-rijo/myapp.git'
             }
         }
 
