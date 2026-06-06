@@ -1,44 +1,62 @@
 pipeline {
-    agent any
+agent any
 
-    environment {
-        AWS_REGION = "ap-south-1"
-        AWS_ACCOUNT_ID = "YOUR_ACCOUNT_ID"
-        ECR_REPO = "myapp"
-        IMAGE_TAG = "${BUILD_NUMBER}"
+```
+environment {
+    AWS_REGION     = "ap-south-1"
+    AWS_ACCOUNT_ID = "933747314862"
+    ECR_REPO       = "myapp"
+    IMAGE_TAG      = "${BUILD_NUMBER}"
+}
+
+stages {
+
+    stage('Checkout') {
+        steps {
+            git branch: 'main',
+                credentialsId: 'githubcredentials',
+                url: 'https://github.com/prajwal-rijo/my-app.git'
+        }
     }
 
-    stages {
-
-        stage('Checkout') {
-            steps {
-                git branch: 'main',
-                url: 'https://github.com/prajwal-rijo/myapp.git'
-            }
+    stage('SonarQube Analysis') {
+        steps {
+            echo "Running SonarQube Analysis"
         }
+    }
 
-        stage('SonarQube Analysis') {
-            steps {
-                echo "Running SonarQube Analysis"
-            }
+    stage('Build Docker Image') {
+        steps {
+            sh '''
+            docker build -t ${ECR_REPO}:${IMAGE_TAG} .
+            '''
         }
+    }
 
-        stage('Build') {
-            steps {
-                sh 'docker build -t myapp:${BUILD_NUMBER} .'
-            }
-        }
+    stage('Push Image to ECR') {
+        steps {
+            sh '''
+            aws ecr get-login-password --region ${AWS_REGION} | \
+            docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
-        stage('Push to ECR') {
-            steps {
-                sh '''
-                aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com
+            docker tag ${ECR_REPO}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${IMAGE_TAG}
 
-                docker tag myapp:${BUILD_NUMBER} ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/myapp:${BUILD_NUMBER}
-
-                docker push ${AWS_ACCOUNT_ID}.dkr.ecr.ap-south-1.amazonaws.com/myapp:${BUILD_NUMBER}
-                '''
-            }
+            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${IMAGE_TAG}
+            '''
         }
     }
 }
+
+post {
+    success {
+        echo "Image pushed successfully to ECR"
+    }
+
+    failure {
+        echo "Pipeline failed"
+    }
+}
+```
+
+}
+
